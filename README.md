@@ -9,9 +9,9 @@ A minimal extensible learning framework built on OpenAI gymnasium and PyTorch
 - Clean training loop with logging and evaluation
 
 ## Roadmap
-[x] Base framework with Gymnasium
-[] REINFORCE
-[] DQN
-[] PPO
-[] Tensorboard integration
-[] Weights and biases integration
+- [x] Base framework with Gymnasium
+- [ ] REINFORCE
+- [ ] DQN
+- [ ] PPO
+- [ ] Tensorboard integration
+- [ ] Weights and biases integration
