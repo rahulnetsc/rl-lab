@@ -3,7 +3,7 @@ import gymnasium as gym
 import numpy as np
 import argparse
 
-from rl_algorithms import PPO, DQN, REINFORCE
+from algos import PPO, DQN, REINFORCE
 
 class RLAgent():
     def __init__(self, n_eps, env : gym.Env, algo):
@@ -28,7 +28,7 @@ class RLAgent():
 
     def eval(self,):
         pass
-    
+
 if __name__ == '__main__':
 
     default_env = gym.make('MountainCar-v0')
