@@ -10,7 +10,8 @@ A minimal extensible learning framework built on OpenAI gymnasium and PyTorch
 
 ## Roadmap
 - [x] Base framework with Gymnasium
-- [ ] REINFORCE
+- [ ] A2C
+- [ ] DDPC
 - [ ] DQN
 - [ ] PPO
 - [ ] SAC (continuous control)
