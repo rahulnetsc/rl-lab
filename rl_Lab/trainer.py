@@ -6,24 +6,13 @@ import argparse
 from algos import PPO, DQN, REINFORCE
 
 class RLAgent():
-    def __init__(self, n_eps, env : gym.Env, algo):
+    def __init__(self, env: gym.Env, algo, eval_env: gym.Env|None = None):
         super().__init__()
         self.env = env
-        self.algo = algo(n_eps)
-        self.actions = None
-        self.lr = 0.01
-        self.init_env()
+        self.algo = algo
+        self.eval_env = eval_env or env    
         
-    def init_env(self,):
-        _obs, _info = self.env.reset() 
-        if isinstance(self.env.action_space, gym.spaces.Discrete):
-            self.actions = np.arange(self.env.action_space.n)
-        elif isinstance(self.env.action_space, gym.spaces.Box):
-            self.actions = None
-        else:
-            raise NotImplementedError(f"Action space: type(self.env.action_space)={type(self.env.action_space)} not implemented")
-        
-    def train(self,):
+    def train(self, total_steps: int):
         self.algo.train()
 
     def eval(self,):
@@ -40,6 +29,6 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     print(f"Running ")
-    agent = RLAgent(n_eps= args.n_eps, env= args.env, algo= args.algo)
+    # agent = RLAgent(n_eps= args.n_eps, env= args.env, algo= args.algo)
 
         

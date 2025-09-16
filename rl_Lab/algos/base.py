@@ -36,7 +36,7 @@ class Algo(ABC):
 
         return None # Off-policy algos override
     
-    def episode_update(self, trajectory) -> dict| None:
+    def episode_update(self, episode: int, trajectory,) -> dict| None:
         '''
         A per episode/rollout hook. The trainer calls this after every episode to update on-policy algos.  
         e.g.:
@@ -44,7 +44,8 @@ class Algo(ABC):
         {
         "obs" : [obs_t, ...],
         "acts" : [act_t, ...],
-        "rews" : [rew_t, ...]
+        "rews" : [rew_t, ...],
+        "next_obs": [next_obs_t, ...],
         }
 
         '''
