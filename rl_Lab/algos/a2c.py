@@ -17,12 +17,13 @@ class A2C(Algo):
         self.initialize_model_weights(self.critic)
         self._episode_buffer = defaultdict(list)
         self._replay_buffer = defaultdict(lambda: defaultdict(list))
+        
         self.env = env
     def initialize_model_weights(self, mlp):
         # initialize model parameters : to be implemented
         pass
 
-    def act(self, obs_np: np.ndarray, eval_mode: bool = False, done: bool = False, transition : dict= {}):
+    def act(self, obs_np: np.ndarray,  eval_mode: bool = False ):
         if not eval_mode:
             obs_tensor = torch.tensor(obs_np,device=self.device)
             logits = self.actor(obs_tensor)
@@ -32,16 +33,20 @@ class A2C(Algo):
         else:
             # To be implemented
             pass 
-
+        
+        done = False
         next_obs, rew, terminated, truncated, info = self.env.step(action=action)
         if terminated or truncated:
             done = True
+            
         
-        transition["obs"] = obs_np
-        transition["act"] = action
-        transition["rew"] = rew
-        transition["next_obs"] = next_obs
-        transition["value"] = value_function 
+        transition = {
+            "obs": obs_np,
+            "act": action, # Storing the numpy version is often more practical
+            "rew": rew,
+            "next_obs": next_obs,
+            "value": value_function
+        }
         self.step_update(transition=transition)
         return action 
     
