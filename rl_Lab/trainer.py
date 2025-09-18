@@ -34,6 +34,7 @@ class trainer:
         self.episode_idx = 0
         self.seed = cfg['trainer']['seed']
         self.rng = np.random.default_rng(seed= self.seed)
+        self.cfg = cfg
 
     def train(self, ):
         
@@ -41,10 +42,50 @@ class trainer:
         ep_ret, ep_len = 0.0, 0
         last_eval = 0
         last_log = 0
-        
 
-    def eval_policy(self,):
-        pass
+        while self.global_step < self.cfg['max_steps']:
+
+            action = self.algo.select_action(obs_np=obs)
+            next_obs, reward, terminated, truncated, info= self.env.step(action= action)
+            done = bool(terminated or truncated)
+
+            transition = {
+                'obs': obs,
+                'action': action,
+                'reward': reward,
+                'next_obs': next_obs,
+                'done': done,
+                'step': self.global_step,
+            }
+            self.algo.observe(transition=transition)
+
+            metrics = self.algo.update() or {}
+
+            if self.global_step - last_log == self.cfg['log_every']:
+                print(f"[Episode: {self.episode_idx}], ep_len: {ep_len}, global_step: {self.global_step}")
+                kv = ", ".join(f"{k}: {v:.3f}" for k, v in metrics.items())
+                print(kv)
+                last_log = self.global_step
+
+            if self.global_step - last_eval == self.cfg['eval_every']:
+                eval_metrics: dict = self.eval_policy() or {}
+                print(f"Eval at {self.global_step}")
+                kv = ", ".join(f"{k}: {v:.3f}" for k, v in eval_metrics.items())
+                print(kv)
+
+            obs = next_obs
+            ep_ret += float(reward)
+            ep_len += 1
+            self.global_step += 1
+
+            if done:
+                print(f"[Episode: {self.episode_idx}], episode_len = {ep_len}, return = {ep_ret:.3f}")
+                self.algo.on_episode_end()
+                ep_ret, ep_len = 0.0, 0
+                self.episode_idx += 1
+
+    def eval_policy(self,)-> dict| None:
+        return 
 
 if __name__ == '__main__':
 
