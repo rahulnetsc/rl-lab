@@ -14,7 +14,7 @@ from ..nets import MLP, CNN
 
 
 class DQN(Algo):
-    def __init__(self, obs_dim, num_actions, device : torch.device, seed = 42, cfg = None) -> None:
+    def __init__(self, obs_dim, num_actions, env: gym.Env, device : torch.device, seed = 42, cfg = None) -> None:
         super().__init__()
         self.online_net = MLP(in_dim= obs_dim, out_dim= num_actions).to(device=device)
         self.target_net = MLP(in_dim= obs_dim, out_dim= num_actions).to(device=device)
@@ -22,7 +22,7 @@ class DQN(Algo):
         self.replay_buffer = []
 
         self.init_model_weights()
-        
+        self.env = env 
     
         self.rng = np.random.default_rng(seed=seed)
         self.num_actions = num_actions
