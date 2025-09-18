@@ -1,5 +1,6 @@
 import torch 
 import random
+import yaml
 
 def dev_sel():
     if torch.cuda.is_available():
@@ -17,5 +18,13 @@ def dev_sel():
         print("CUDA is not available. Using CPU.")
 
     return device
+
+def load_yaml(path: str,)-> dict:
+
+    with open(path, 'r') as f:
+        config = yaml.safe_load(f)
+
+    return config
+ 
 
     
