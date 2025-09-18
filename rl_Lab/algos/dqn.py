@@ -11,10 +11,10 @@ from ..nets import MLP, CNN
 
 
 class DQN(nn.Module):
-    def __init__(self, state_dim, num_actions, env: gym.Env, device : torch.device, seed = 42) -> None:
+    def __init__(self, obs_dim, num_actions, env: gym.Env, device : torch.device, seed = 42, cfg = None) -> None:
         super().__init__()
-        self.online_net = MLP(in_dim= state_dim, out_dim= num_actions).to(device=device)
-        self.target_net = MLP(in_dim= state_dim, out_dim= num_actions).to(device=device)
+        self.online_net = MLP(in_dim= obs_dim, out_dim= num_actions).to(device=device)
+        self.target_net = MLP(in_dim= obs_dim, out_dim= num_actions).to(device=device)
 
         self.replay_buffer = []
 

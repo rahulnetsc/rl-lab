@@ -1,0 +1,21 @@
+trainer:
+  env_id: 'CartPole-v1'
+  seed: 42
+  max_steps: 200000
+
+  # eval 
+  eval_every: 5000
+  eval_episodes: 10
+  render_eval: false
+
+  # checkpoint 
+  ckpt_dir: 'checkpoints'
+  ckpt_every: 20000
+  resume: false
+
+  # logging
+  log_dir: 'logging'
+  log_every: 1000
+
+
+
