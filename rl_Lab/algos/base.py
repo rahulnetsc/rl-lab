@@ -35,7 +35,7 @@ class Algo(ABC):
     def update(self,)-> dict[str, float]| None:
         '''
         Perform one step gradient update if ready otherwise no op 
-        Returns a metrics dict (e.g. {'train/loss': 0.123}) or None
+        Returns a metrics dict (e.g. {'loss': 0.123}) or None
         - Off policy (e.g., DQN):  usually learn every step after warmup by sampling from replay.
         - On policy (e.g., PPO, A2C): learn only when a rollout/episode is complete (or length T reached).
         '''
@@ -51,6 +51,18 @@ class Algo(ABC):
         '''
         return
 
+    def on_train_start(self, cfg):
+        '''
+        For initialization during training
+        '''
+        return
+    
+    def on_train_end(self,):
+        '''
+        Optional: train logic end
+        '''
+        return
+    
     def state_dict(self,)-> dict[str, Any]:
         '''
         Return model parameters
