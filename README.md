@@ -12,7 +12,7 @@ A minimal extensible learning framework built on OpenAI gymnasium and PyTorch
 - [x] Base framework with Gymnasium
 - [ ] A2C
 - [ ] DDPC
-- [ ] DQN
+- [x] DQN
 - [ ] PPO
 - [ ] SAC (continuous control)
 - [ ] Tensorboard integration
@@ -40,4 +40,9 @@ rl-lab/
 ├── requirements.txt
 └── LICENSE
 
+```
+
+DQN
+```
+ python -m rl_Lab.trainer 
 ```
