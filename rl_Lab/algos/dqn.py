@@ -13,6 +13,7 @@ from .base import Algo
 from ..nets import MLP, CNN
 
 from ..memory import ReplayBuffer
+import ipdb 
 
 class DQN(Algo):
     def __init__(self, obs_dim, obs_shape, action_dim, cfg, device) -> None:
@@ -31,6 +32,8 @@ class DQN(Algo):
         self.eps = cfg['epsilon']
         self.gamma = cfg['gamma']
         self.reset_gamma = cfg['gamma']
+        self.max_norm = cfg['max_norm']
+        self.warmup_steps = cfg['warmup_steps']
 
         # if not atari env or env requiring otherwise cnn, need a way to autmate this
         if len(self.obs_shape) == 1:
@@ -53,10 +56,12 @@ class DQN(Algo):
         self.batch_sampler = np.random.default_rng()
         self.loss_fn = nn.MSELoss()
 
-        self.max_norm = 10
         self.device = device
-        self.lr = 0.01
+        self.lr = float(cfg.get('lr', 0.01))
         self.optimizer = torch.optim.Adam(self.online_net.parameters(), lr=self.lr)
+        self.online_dict = None    
+        self.target_dict =  None
+        self.optimizer_dict = None
     
     def init_model_weights(self):
         def init_fn(m: nn.Module):
@@ -124,22 +129,22 @@ class DQN(Algo):
         '''
         if self.replay.can_sample(batch_size=self.batch_size):
             sample = self.replay.sample(batch_size= self.batch_size, rng= self.batch_sampler)
-            
+            # ipdb.set_trace()
             obs = sample['obs']
-            obs = torch.as_tensor(obs, device= self.device).unsqueeze(0)
+            obs = torch.as_tensor(obs, device= self.device)
             action = sample['action']
             action = torch.as_tensor(action, device= self.device).unsqueeze(1)
             reward = sample['reward']
             reward = torch.as_tensor(reward, device= self.device).unsqueeze(1)
             next_obs = sample['next_obs']
-            next_obs = torch.as_tensor(next_obs, device= self.device).unsqueeze(0)
+            next_obs = torch.as_tensor(next_obs, device= self.device)
             done = sample['done']
-            done = torch.as_tensor(done, device= self.device).unsqueeze(1)
+            done = torch.as_tensor(done, device= self.device, dtype=torch.float32).unsqueeze(1)
 
             
             with torch.no_grad():
                 next_state_q_values = self.target_net(next_obs)
-                max_next_q_values = next_state_q_values.max(dim=1, keepdim=True).values
+                max_next_q_values = next_state_q_values.max(dim=-1, keepdim=True).values
                 target_q = reward + self.gamma * max_next_q_values * (1- done)
             
             q_tensor = self.online_net(obs)
@@ -148,6 +153,7 @@ class DQN(Algo):
             
             self.optimizer.zero_grad()
             loss.backward()
+            torch.nn.utils.clip_grad_norm_(self.online_net.parameters(), self.max_norm)
             self.optimizer.step()
             mean_loss = torch.mean(loss).item()
 
@@ -167,27 +173,51 @@ class DQN(Algo):
           - reset episode-specific accumulators.
         '''
         self.gamma = self.reset_gamma 
+
+        self.eps = max(self.cfg.get('eps_min', 0.05),
+                   self.eps * self.cfg.get('eps_decay', 0.995))
+
+        # What else to add here?
         return
 
     def state_dict(self,)-> dict[str, Any]:
         '''
         Return model parameters
         '''    
-        online_dict = self.online_net.state_dict()    
-        return online_dict
+        self.online_dict = self.online_net.state_dict()    
+        self.target_dict =  self.target_net.state_dict()
+        self.optimizer_dict = self.optimizer.state_dict()
+        return {'online': self.online_dict, 'target': self.target_dict, 'optimizer': self.optimizer_dict}
     
     def load_state_dict(self, state: dict[str, Any])-> None:
+
+        assert state['online'], 'Online net model parameters not found'
+        self.online_net.load_state_dict(state_dict= state['online']) 
+        assert state['target'], 'Target net model parameters not found'
+        self.target_net.load_state_dict(state_dict= state['target']) 
+        assert state['optimizer'], 'Optimizer parameters not found'
+        self.optimizer.load_state_dict(state_dict= state['optimizer']) 
+
         return 
     
     def on_train_start(self, cfg):
         '''
         For initialization during training
         '''
+        self.online_net.train()
+        self.target_net.eval()
+        self.warmup_steps = int(self.cfg.get('warmup_steps', 1_000))  # steps before any training/decay
+
         return
     
     def on_train_end(self,global_step ):
         '''
         Optional: train logic end
         '''
-        self.gamma = self.gamma/global_step
+        if global_step >= self.warmup_steps:
+            denom = max(1, self.cfg['eps_decay_steps'])
+            frac = min(1.0, (global_step - self.warmup_steps) / denom)
+            self.eps = float(self.cfg['eps_start'] + frac * (self.cfg['eps_end'] - self.cfg['eps_start']))
+
         return
+    
