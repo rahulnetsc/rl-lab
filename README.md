@@ -27,14 +27,27 @@ rl-lab/
 │   ├── trainer.py
 │   ├── envs.py
 │   ├── utils.py
+│   ├── checkpoints/
+│   │
+│   ├── configs
+│   │   ├── base.yaml
+│   │   ├── dqn.yaml
+│   │
+│   ├── logs/
+│   │
+│   ├── memory/
+│   │   ├── replay.py
+│   │
 │   ├── nets/
 │   │   ├── __init__.py
 │   │   └── mlp.py
 │   └── algos/
 │       ├── __init__.py
 │       ├── base.py
+│       ├── dqn.py     
 │       ├── reinforce.py     
 │       └── ppo.py           
+│    
 ├── main.py                  (CLI entry point)
 ├── README.md
 ├── requirements.txt
