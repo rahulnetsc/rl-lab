@@ -90,13 +90,13 @@ class DQN(Algo):
         - Handle exploration/exploitation with eval_mode
         - MUST NOT call env.step() here (or anywhere in the algo). The trainer owns env stepping.
         '''
-        if self.rng.random() < self.eps:
+        if not eval_mode and (self.rng.random() < self.eps):
             # exploration
-            action = self.rng.integers(low= 0, high= self.action_dim)
-        else:
-            obs_tensor = torch.tensor(obs_np, device= self.device)
-            logits = self.online_net(obs_tensor)
-            action = torch.argmax(logits, dim= -1).item()
+            return self.rng.integers(low= 0, high= self.action_dim)
+        
+        obs_tensor = torch.tensor(obs_np, device= self.device)
+        logits = self.online_net(obs_tensor)
+        action = torch.argmax(logits, dim= -1).item()
         return action
 
 
@@ -174,10 +174,9 @@ class DQN(Algo):
         '''
         self.gamma = self.reset_gamma 
 
-        self.eps = max(self.cfg.get('eps_min', 0.05),
-                   self.eps * self.cfg.get('eps_decay', 0.995))
+        # self.eps = max(self.cfg.get('eps_min', 0.05),
+        #            self.eps * self.cfg.get('eps_decay', 0.995))
 
-        # What else to add here?
         return
 
     def state_dict(self,)-> dict[str, Any]:

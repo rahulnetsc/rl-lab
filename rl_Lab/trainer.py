@@ -14,9 +14,12 @@ import torch
 class Trainer:
     def __init__(self, cfg, algo_cfg, args, env = None, eval_env = None):
         super().__init__()
-
-        self.env: gym.Env = env or gym.make(cfg['trainer']['env_id'])
-        self.eval_env: gym.Env = eval_env or gym.make(cfg['trainer']['env_id'], render_mode="human")
+        self.env_id = cfg['trainer']['env_id']
+        self.env: gym.Env = env or gym.make(self.env_id)
+        if args.only_eval:
+            self.eval_env: gym.Env = eval_env or gym.make(self.env_id, render_mode="human")
+        else:
+            self.eval_env: gym.Env = eval_env or gym.make(self.env_id)
 
         self.obs_shape = np.array(self.env.observation_space.shape)
         self.obs_dim = int(np.prod(np.array(self.env.observation_space.shape)))
@@ -30,11 +33,15 @@ class Trainer:
         else: 
             raise NotImplementedError(f"Algo: {args.algo} not implemented")
 
-        os.makedirs(cfg['trainer']['ckpt_dir'], exist_ok= True)
-        self.ckpt_dir = Path(cfg['trainer']['ckpt_dir'])
-        self.ckpt_path = Path(self.ckpt_dir) / f"{cfg['trainer']['env_id']}.pt"
-        os.makedirs(cfg['trainer']['log_dir'], exist_ok= True)
-        self.writer = SummaryWriter(log_dir= cfg['trainer']['log_dir'])        
+        # --- Checkpoints ---
+        self.ckpt_dir = Path(cfg['trainer']['ckpt_dir']) / self.env_id
+        self.ckpt_dir.mkdir(parents=True, exist_ok=True)
+        self.ckpt_path = self.ckpt_dir / f"{self.env_id}.pt"
+
+        # --- Logs ---
+        self.log_dir = Path(cfg['trainer']['log_dir']) / self.env_id
+        self.log_dir.mkdir(parents=True, exist_ok=True)
+        self.writer = SummaryWriter(log_dir=str(self.log_dir))
 
         self.global_step = 0
         self.episode_idx = 0
@@ -54,6 +61,8 @@ class Trainer:
             state = torch.load(self.ckpt_path, map_location=self.device)
             self.algo.load_state_dict(state)
             print(f"Resumed from {self.ckpt_path}")
+            eval_metrics: dict = self.eval_policy(idx=self.global_step) or {}
+            self.best_eval_return = eval_metrics['return_mean']
         else:
             print(f"Starting training")
         while self.global_step < self.cfg['trainer']['max_steps']:
@@ -87,7 +96,7 @@ class Trainer:
                 last_log = self.global_step
 
             if last_eval==0 or self.global_step - last_eval >= self.cfg['trainer']['eval_every']:
-                eval_metrics: dict = self.eval_policy(self.global_step) or {}
+                eval_metrics: dict = self.eval_policy(idx=self.global_step) or {}
                 # print(f"Eval at {self.global_step}")
                 # kv = ", ".join(f"eval/{k}: {v:.3f}" for k, v in eval_metrics.items())
                 # print(kv)
@@ -98,7 +107,7 @@ class Trainer:
                 if self.best_eval_return < eval_metrics['return_mean']:
                     self.best_eval_return = eval_metrics['return_mean']
                     state = self.algo.state_dict()
-                    print(f"Saving params in {self.ckpt_dir}")
+                    print(f"Saving params in {self.ckpt_dir} at self.global_step = {self.global_step}\n")
                     torch.save(state, self.ckpt_path)
 
             obs = next_obs
@@ -138,19 +147,21 @@ class Trainer:
                 action = self.algo.select_action(obs_np=obs, eval_mode= True)
                 next_obs, reward, terminated, truncated, _ = self.eval_env.step(action=action)
                 done = bool(terminated or truncated)
-                if self.cfg['eval']['render_eval']:
+                if self.cfg['eval']['render_eval'] and only_eval:
                     self.eval_env.render()
                 obs = next_obs
                 ep_ret += float(reward)
                 ep_len += 1
-            print(f"[Eval] episode_len = {ep_len}, episode_return = {ep_ret:.3f}")
+            if only_eval:    
+                print(f"[Eval] episode_len = {ep_len}, episode_return = {ep_ret:.3f}")
+                
             returns.append(ep_ret)
             lengths.append(ep_len)
 
         # if self.cfg['eval']['render_eval']:
         #     self.eval_env.close()
-        #     self.eval_env = gym.make(self.cfg['trainer']['env_id'], render_mode="human")
-
+        #     self.eval_env = gym.make(self.self.env_id, render_mode="human")
+        print(f"[Eval] length_mean = {np.mean(lengths)}, return_mean = {np.mean(returns):.3f}")
         return {
             'return_mean': np.mean(returns),
             'length_mean': np.mean(lengths)
@@ -163,13 +174,13 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--algo", type=str, default="dqn",
                         choices=["dqn","ppo","ddpg","a2c"])
-    parser.add_argument("--trainer_cfg", type=str, default="rl_Lab/configs/base.yaml")
+    parser.add_argument("--trainer_cfg", type=str, default="rl_Lab/configs/base_acro.yaml")
     parser.add_argument("--algo_cfg", type=str, default="rl_Lab/configs/dqn.yaml")
     parser.add_argument("--only_eval", action="store_true")
     args = parser.parse_args()
     args.device = device
 
-    print(f"Running {args.algo}")
+    print(f"Running {args.algo} with args: \n{args} ")
     print(f"Loading Trainer configs from {args.trainer_cfg}")
     trainer_config = load_yaml(args.trainer_cfg)
     print(f"Loading Algorithm configs from {args.algo_cfg}")

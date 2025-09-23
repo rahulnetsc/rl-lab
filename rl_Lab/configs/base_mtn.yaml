@@ -1,0 +1,27 @@
+trainer:
+  env_id: 'MountainCar-v0'
+  seed: 42
+  max_steps: 200000
+
+  eval_every: 20000
+  eval_episodes: 10
+  render_eval: false 
+  
+  # checkpoint 
+  ckpt_dir: rl_Lab/checkpoints
+  ckpt_every: 20000
+  resume: true
+
+  # logging
+  log_dir: rl_Lab/logs
+  log_every: 5000
+
+eval:
+  render_eval: true
+  eval_episodes: 10
+  
+
+
+
+
+

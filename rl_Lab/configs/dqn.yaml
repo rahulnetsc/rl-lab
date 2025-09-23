@@ -1,7 +1,7 @@
 # configs/dqn.yaml
 gamma: 0.99
-lr: 0.05
-batch_size: 128
+lr: 0.01
+batch_size: 512
 buffer_size: 50000
 warmup_steps: 1000
 min_replay_size: 1000
