@@ -1,0 +1,4 @@
+# configs/dqn.yaml
+gamma: 0.99
+lr: 0.01
+batch_size: 512

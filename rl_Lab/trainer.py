@@ -8,7 +8,7 @@ import os
 from pathlib import Path
 import time 
 
-from .algos import DQN
+from .algos import DQN, DoubleDQN, DuelingDQN, DuelingDQNPrb, A2C
 from .utils import dev_sel, load_yaml
 import torch 
 class Trainer:
@@ -29,17 +29,32 @@ class Trainer:
         time.sleep(1)
         # need to implement a better logic for algo selection
         if args.algo == 'dqn':
-            self.algo = DQN(obs_dim=self.obs_dim, obs_shape = self.obs_shape, action_dim= self.action_dim, cfg= algo_cfg, device= self.device)
+            self.algo = DQN(obs_dim=self.obs_dim, obs_shape = self.obs_shape, action_dim= self.action_dim, 
+                            cfg= algo_cfg, device= self.device)
+        elif args.algo == 'doubledqn':
+            self.algo = DoubleDQN(obs_dim=self.obs_dim, obs_shape = self.obs_shape, action_dim= self.action_dim, 
+                            cfg= algo_cfg, device= self.device)
+        elif args.algo == 'duelingdqn':
+            self.algo = DuelingDQN(obs_dim=self.obs_dim, obs_shape = self.obs_shape, state_dim= 64, action_dim= self.action_dim, 
+                            cfg= algo_cfg, device= self.device)
+        elif args.algo == 'prbduelingdqn':
+            self.algo = DuelingDQNPrb(obs_dim=self.obs_dim, obs_shape = self.obs_shape, state_dim= 64, action_dim= self.action_dim, cfg= algo_cfg, device= self.device)
+        elif args.algo == 'a2c':
+            # To be implemented
+            pass 
+        elif args.algo == 'ppo':
+            # To be implemented 
+            pass
         else: 
             raise NotImplementedError(f"Algo: {args.algo} not implemented")
 
         # --- Checkpoints ---
         self.ckpt_dir = Path(cfg['trainer']['ckpt_dir']) / self.env_id
         self.ckpt_dir.mkdir(parents=True, exist_ok=True)
-        self.ckpt_path = self.ckpt_dir / f"{self.env_id}.pt"
+        self.ckpt_path = self.ckpt_dir / f"{args.algo}_{self.env_id}.pt"
 
         # --- Logs ---
-        self.log_dir = Path(cfg['trainer']['log_dir']) / self.env_id
+        self.log_dir = Path(cfg['trainer']['log_dir']) / f"{args.algo}_{self.env_id}"
         self.log_dir.mkdir(parents=True, exist_ok=True)
         self.writer = SummaryWriter(log_dir=str(self.log_dir))
 
@@ -65,6 +80,8 @@ class Trainer:
             self.best_eval_return = eval_metrics['return_mean']
         else:
             print(f"Starting training")
+        
+        self.algo.on_train_start(self.cfg)
         while self.global_step < self.cfg['trainer']['max_steps']:
 
             action = self.algo.select_action(obs_np=obs)
@@ -86,7 +103,7 @@ class Trainer:
 
             self.algo.on_train_end(global_step = self.global_step)
 
-            if last_log==0 or self.global_step - last_log >= self.cfg['trainer']['log_every']:
+            if metrics and (last_log==0 or self.global_step - last_log >= self.cfg['trainer']['log_every']):
                 print(f"[Episode: {self.episode_idx}], ep_len: {ep_len}, global_step: {self.global_step}")
                 kv = ", ".join(f"train/{k}: {v:.3f}" for k, v in metrics.items())
                 print(kv)
@@ -97,9 +114,9 @@ class Trainer:
 
             if last_eval==0 or self.global_step - last_eval >= self.cfg['trainer']['eval_every']:
                 eval_metrics: dict = self.eval_policy(idx=self.global_step) or {}
-                # print(f"Eval at {self.global_step}")
-                # kv = ", ".join(f"eval/{k}: {v:.3f}" for k, v in eval_metrics.items())
-                # print(kv)
+                print(f"Eval at {self.global_step}")
+                kv = ", ".join(f"eval/{k}: {v:.3f}" for k, v in eval_metrics.items())
+                print(kv)
                 for k, v in eval_metrics.items():
                     self.writer.add_scalar(f'eval/{k}', v, self.global_step)
                 last_eval = self.global_step
@@ -163,8 +180,8 @@ class Trainer:
         #     self.eval_env = gym.make(self.self.env_id, render_mode="human")
         print(f"[Eval] length_mean = {np.mean(lengths)}, return_mean = {np.mean(returns):.3f}")
         return {
-            'return_mean': np.mean(returns),
-            'length_mean': np.mean(lengths)
+            'length_mean': np.mean(lengths),
+            'return_mean': np.mean(returns)
         }
 
 if __name__ == '__main__':
@@ -173,9 +190,8 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--algo", type=str, default="dqn",
-                        choices=["dqn","ppo","ddpg","a2c"])
-    parser.add_argument("--trainer_cfg", type=str, default="rl_Lab/configs/base_acro.yaml")
-    parser.add_argument("--algo_cfg", type=str, default="rl_Lab/configs/dqn.yaml")
+                        choices=["dqn","doubledqn","duelingdqn","prbduelingdqn"])
+    parser.add_argument("--trainer_cfg", type=str, default="rl_Lab/configs/base_lunar.yaml")
     parser.add_argument("--only_eval", action="store_true")
     args = parser.parse_args()
     args.device = device
@@ -183,9 +199,24 @@ if __name__ == '__main__':
     print(f"Running {args.algo} with args: \n{args} ")
     print(f"Loading Trainer configs from {args.trainer_cfg}")
     trainer_config = load_yaml(args.trainer_cfg)
+
+    if args.algo == 'dqn':
+        args.algo_cfg = "rl_Lab/configs/dqn.yaml"
+    elif args.algo == 'doubledqn':
+        args.algo_cfg = "rl_Lab/configs/double_dqn.yaml"
+    elif args.algo == 'duelingdqn':
+        args.algo_cfg = "rl_Lab/configs/duelingdqn.yaml"
+    elif args.algo == 'prbduelingdqn':
+        args.algo_cfg = "rl_Lab/configs/prb_duelingdqn.yaml"
+    elif args.algo == 'a2c':
+        args.algo_cfg = "rl_Lab/configs/a2c.yaml"
+    elif args.algo == 'ppo':
+        args.algo_cfg = "rl_Lab/configs/ppo.yaml"
+
     print(f"Loading Algorithm configs from {args.algo_cfg}")
     algo_cfg = load_yaml(args.algo_cfg)
     time.sleep(1)
+    
     agent = Trainer(cfg=trainer_config, algo_cfg= algo_cfg, args= args)
     if args.only_eval:
         agent.eval_policy(only_eval=args.only_eval)

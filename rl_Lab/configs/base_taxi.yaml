@@ -1,9 +1,9 @@
 trainer:
   env_id: 'Taxi-v3'
   seed: 42
-  max_steps: 200000
+  max_steps: 100000
 
-  eval_every: 10000
+  eval_every: 1000
   eval_episodes: 10
   render_eval: false 
   

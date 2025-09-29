@@ -6,7 +6,7 @@ buffer_size: 50000
 warmup_steps: 1000
 min_replay_size: 1000
 train_every: 1
-target_update_every: 5000
+target_update_every: 1000
 eps_start: 1.0
 eps_end: 0.01
 eps_decay_steps: 20000

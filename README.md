@@ -45,7 +45,9 @@ rl-lab/
 │       ├── __init__.py
 │       ├── base.py
 │       ├── dqn.py     
-│       ├── reinforce.py     
+│       ├── double_dqn.py     
+│       ├── duelingdqn.py     
+│       ├── 
 │       └── ppo.py           
 │    
 ├── main.py                  (CLI entry point)
@@ -57,5 +59,20 @@ rl-lab/
 
 DQN
 ```
- python -m rl_Lab.trainer 
+  python -m rl_Lab.trainer --algo dqn
+```
+
+Double DQN
+```
+  python -m rl_Lab.trainer --algo doubledqn
+```
+
+Dueling DQN
+```
+  python -m rl_Lab.trainer --algo duelingdqn
+```
+    
+Dueling DQN with Prioritized Replay Buffer
+```
+ python -m rl_Lab.trainer --algo prbduelingdqn 
 ```

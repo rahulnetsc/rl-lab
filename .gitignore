@@ -1,3 +1,6 @@
 testing/
 .venv/
-logs/
+logs/*
+!logs/.gitkeep
+
+rl_Lab/algos/__pycache__/*

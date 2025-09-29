@@ -1,27 +1,19 @@
 import torch 
 import torch.nn as nn
-
-from torch.distributions import Categorical
-
 import numpy as np
-import gymnasium as gym
 
-from collections import defaultdict
 from typing import Any
-
 from .base import Algo
 from ..nets import MLP, CNN
-
 from ..memory import ReplayBuffer
-import ipdb 
 
-class DQN(Algo):
+class DoubleDQN(Algo):
     def __init__(self, obs_dim, obs_shape, action_dim, cfg, device) -> None:
         super().__init__()
-
         self.obs_dim = obs_dim
         self.obs_shape = obs_shape
         self.action_dim = action_dim
+
         if self.action_dim is None:
             raise ValueError("DQN supports only discrete action spaces. Got: "
                             f"{type(self.action_dim)}")
@@ -50,8 +42,7 @@ class DQN(Algo):
             self.replay = ReplayBuffer(capacity= cfg["buffer_size"],obs_shape= self.obs_shape, store_uint8 = True,  store_ep_info = True)
 
         self.init_model_weights()
-
-    
+ 
         self.rng = np.random.default_rng(seed=cfg['seed'])
         
         self.act_rng = np.random.default_rng()
@@ -83,8 +74,8 @@ class DQN(Algo):
         self.online_net.apply(init_fn)
         # Start target identical to online
         self.target_net.load_state_dict(self.online_net.state_dict())
-    
-    def select_action(self, obs_np : np.ndarray, eval_mode: bool = False)->  Any:
+
+    def select_action(self, obs_np: np.ndarray, eval_mode: bool = False):
         '''
         Given the current observation, return an action to take in the environment.
         - Convert obs_np into a tensor in the correct device, run the policy or Qnet 
@@ -92,17 +83,15 @@ class DQN(Algo):
         - Handle exploration/exploitation with eval_mode
         - MUST NOT call env.step() here (or anywhere in the algo). The trainer owns env stepping.
         '''
-        if not eval_mode and (self.rng.random() < self.eps):
-            # exploration
-            return self.act_rng.integers(low= 0, high= self.action_dim)
+        if not eval_mode and self.rng.random() < self.eps:
+            return self.act_rng.integers(low=0, high= self.action_dim)
         
         obs_tensor = torch.as_tensor(obs_np, device= self.device)
         logits = self.online_net(obs_tensor)
-        action = torch.argmax(logits, dim= -1).item()
+        action =  torch.argmax(logits, dim=-1).item()
         return action
-
-
-    def observe(self, transition: dict[str, Any])-> None:
+    
+    def observe(self, transition: dict[str, Any]) -> None:
         '''
         A per step-hook called after env.step() 
         transition (minimum)= 
@@ -118,42 +107,48 @@ class DQN(Algo):
             - Off policy: push to replay buffer
             - On policy: append to rollout buffer
         '''
-        self.replay.push(transition=transition)
-        return None 
+        self.replay.push(transition= transition)
+        return None
     
-    def update(self,global_step)-> dict[str, float]| None:
+    def update(self, global_step) -> dict[str, float] | None:
         '''
         Perform one step gradient update if ready otherwise no op 
         Returns a metrics dict (e.g. {'train/loss': 0.123}) or None
         - Off policy (e.g., DQN):  usually learn every step after warmup by sampling from replay.
         - On policy (e.g., PPO, A2C): learn only when a rollout/episode is complete (or length T reached).
-
         '''
         if self.replay.can_sample(batch_size=self.batch_size):
-            sample = self.replay.sample(batch_size= self.batch_size, rng= self.batch_sampler)
+            sample = self.replay.sample(batch_size=self.batch_size, rng= self.batch_sampler)
             
-            obs = torch.as_tensor(sample['obs'], device= self.device)
-            action = torch.as_tensor(sample['action'], device= self.device).unsqueeze(1)
-            reward = torch.as_tensor(sample['reward'], device= self.device).unsqueeze(1)
-            next_obs = torch.as_tensor(sample['next_obs'], device= self.device)
-            done = torch.as_tensor(sample['done'], device= self.device, dtype=torch.float32).unsqueeze(1)
-            
+            obs      = torch.as_tensor(sample['obs'], device=self.device)
+            action   = torch.as_tensor(sample['action'], device=self.device, dtype=torch.long).unsqueeze(1)
+            reward   = torch.as_tensor(sample['reward'], device=self.device, dtype=torch.float32).unsqueeze(1)
+            next_obs = torch.as_tensor(sample['next_obs'], device=self.device)
+            done     = torch.as_tensor(sample['done'], device=self.device, dtype=torch.float32).unsqueeze(1)
+
+
             with torch.no_grad():
-                next_state_q_values = self.target_net(next_obs)
-                max_next_q_values = next_state_q_values.max(dim=-1, keepdim=True).values
-                target_q = reward + self.gamma * max_next_q_values * (1- done)
+                # 1) action selection by ONLINE net (indices, not values)
+                next_q_online = self.online_net(next_obs)
+                next_actions = next_q_online.argmax(dim =-1, keepdim=True)
+
+                # 2) Action evaluation by TARGET net
+                next_q_target = self.target_net(next_obs)
+                max_next_q_values = next_q_target.gather(1,next_actions)
+                
+                target_q = reward + self.gamma * max_next_q_values * (1.0 - done)
             
             q_tensor = self.online_net(obs)
             q_values = q_tensor.gather(1, action)
-            loss = self.loss_fn(q_values, target_q) 
-            
+            loss = self.loss_fn(q_values, target_q)
+
             self.optimizer.zero_grad()
             loss.backward()
             torch.nn.utils.clip_grad_norm_(self.online_net.parameters(), self.max_norm)
             self.optimizer.step()
             mean_loss = torch.mean(loss).item()
 
-            # Polyak soft target updates       
+            # Polyak soft target updates            
             if self.polyak:     
                 with torch.no_grad():
                     for t,p in zip(self.target_net.parameters(), self.online_net.parameters()):
@@ -162,10 +157,11 @@ class DQN(Algo):
                 if global_step % self.target_update_every == 0:
                     self.target_net.load_state_dict(state_dict= self.online_net.state_dict())
 
+
             return {'loss': mean_loss}
-                
         return None
     
+
     def on_episode_end(self,)-> None:
         '''
         Optional per episode hook
@@ -220,4 +216,3 @@ class DQN(Algo):
             frac = min(1.0, (global_step - self.warmup_steps) / denom)
             self.eps = float(self.cfg['eps_start'] + frac * (self.cfg['eps_end'] - self.cfg['eps_start']))
         return
-    
