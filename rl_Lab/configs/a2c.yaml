@@ -2,3 +2,8 @@
 gamma: 0.99
 lr: 0.01
 batch_size: 512
+rollout_size: 1000
+seed: 42
+max_norm: 10
+value_coef: 1.0
+entropy_coef: 0.04

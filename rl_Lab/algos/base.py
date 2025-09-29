@@ -32,7 +32,7 @@ class Algo(ABC):
         '''
         return None 
     
-    def update(self,)-> dict[str, float]| None:
+    def update(self,global_step)-> dict[str, float]| None:
         '''
         Perform one step gradient update if ready otherwise no op 
         Returns a metrics dict (e.g. {'loss': 0.123}) or None
@@ -57,7 +57,7 @@ class Algo(ABC):
         '''
         return
     
-    def on_train_end(self,):
+    def on_train_end(self, global_step):
         '''
         Optional: train logic end
         '''

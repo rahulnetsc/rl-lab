@@ -1,5 +1,6 @@
 import torch 
 import torch.nn as nn
+from torch.distributions import Categorical
 import numpy as np
 
 import itertools as it
@@ -23,20 +24,20 @@ class A2C(Algo):
         self.batch_size = cfg['batch_size']
         self.cfg = cfg
         
-        
+        self.gamma = cfg['gamma']
         # if not atari env or env requiring otherwise cnn, need a way to autmate this
         if len(self.obs_shape) == 1:
             # vector_obs -> MLP
             self.feature_layer = MLP(in_dim= obs_dim, out_dim= state_dim).to(device=device)
             self.policy_head = MLP(in_dim= state_dim, out_dim= action_dim).to(device=device)
             self.value_head = MLP(in_dim= state_dim, out_dim= 1).to(device=device)
-            self.rollout = RolloutBuffer(capacity= cfg["buffer_size"],obs_shape= self.obs_shape, store_ep_info = True)
+            self.rollout = RolloutBuffer(capacity= cfg["rollout_size"],obs_shape= self.obs_shape, action_dim= action_dim, store_ep_info = True)
         else:
             # CNN size = (channels,H,W) 
             self.feature_layer = CNN(in_channels= obs_shape[0], out_channels= state_dim, img_height= obs_shape[1], img_width= obs_shape[2]).to(device=device)
             self.policy_head = MLP(in_dim= state_dim, out_dim= action_dim).to(device=device)
             self.value_head = MLP(in_dim= state_dim, out_dim= 1).to(device=device)
-            self.replay = RolloutBuffer(capacity= cfg["buffer_size"],obs_shape= self.obs_shape, store_uint8 = True,            store_ep_info = True)
+            self.rollout = RolloutBuffer(capacity= cfg["rollout_size"],obs_shape= self.obs_shape, action_dim= action_dim, store_uint8 = True,            store_ep_info = True)
 
         self.init_model_weights()
  
@@ -44,11 +45,22 @@ class A2C(Algo):
         
         self.act_rng = np.random.default_rng()
         self.batch_sampler = np.random.default_rng()
-        self.loss_fn = nn.SmoothL1Loss(reduction='none')
 
+        self.value_loss_fn = nn.MSELoss()
+        
         self.device = device
         self.lr = float(cfg.get('lr', 0.01))
-        self.optimizer = None 
+        self.max_norm = cfg['max_norm']
+
+        self.optimizer = torch.optim.Adam(it.chain(self.feature_layer.parameters(),
+                                                   self.policy_head.parameters(),
+                                                   self.value_head.parameters()),
+                                            lr= self.lr) 
+        self.feature_dict = None
+        self.value_dict = None
+        self.policy_dict = None
+        self.optimizer_dict = None 
+        self._cache = None 
 
     def init_model_weights(self):
         def init_fn(m: nn.Module):
@@ -78,7 +90,15 @@ class A2C(Algo):
         '''
         obs_tensor = torch.as_tensor(obs_np, device= self.device)
         logits = self.policy_head(obs_tensor)
-        action = self.act_rng.choice(self.action_dim, p= logits) 
+        if eval_mode:
+            return int(torch.argmax(logits, dim =-1).item())
+        else:
+            action = self.act_rng.choice(self.action_dim, p= logits) 
+            value = self.value_head(obs_tensor)
+            self._cache = {
+                'logits': logits,
+                'value': value,
+            }
         return int(action)
 
     def observe(self, transition: dict[str, Any]) -> None:
@@ -99,8 +119,9 @@ class A2C(Algo):
             - Off policy: push to replay buffer
             - On policy: append to rollout buffer
         '''
-        # obs
-
+        if self._cache:
+            transition['value'] = self._cache['value']
+            transition['logit'] = self._cache['logits']
         self.rollout.push(transition= transition) 
     
     def update(self, global_step) -> dict[str, float] | None:
@@ -113,7 +134,7 @@ class A2C(Algo):
         pass 
     
 
-    def on_episode_end(self,)-> None:
+    def on_episode_end(self,)-> dict[str, float]:
         '''
         Optional per episode hook
         Examples:
@@ -122,26 +143,83 @@ class A2C(Algo):
           - reset episode-specific accumulators.
         '''
         trajectory = self.rollout.sample()
-        
+        assert trajectory, 'EMPTY BUFFER'
+        obs_tensor = torch.as_tensor(trajectory['obs'],device= self.device)
+        _value = trajectory['value']
+        _reward = trajectory['reward']
 
-    def state_dict(self,):
+        advantage, net_return = self.compute_adv_ret(values = _value, rewards = _reward)
+        value_new = self.value_head(obs_tensor)
+        logit_new = self.policy_head(obs_tensor)
+        value_loss = self.value_loss_fn(value_new,net_return)
+        adv_loss = -(advantage* logit_new).mean()
+        entropy_loss = -Categorical(logits=logit_new).entropy()
+        loss = value_loss + self.cfg['value_coef'] * adv_loss + self.cfg['entropy_coef'] * entropy_loss
+        self.optimizer.zero_grad()
+        loss.backward()
+        torch.nn.utils.clip_grad_norm_(it.chain(self.feature_layer.parameters(),
+                                                   self.policy_head.parameters(),
+                                                   self.value_head.parameters()), 
+                                                   self.max_norm)
+        self.optimizer.step()
+        metrics = {
+                'val_loss': value_loss,
+                'adv_loss': adv_loss,
+                'logits_max': float(logit_new.max().item()),
+            }
+        return metrics
+
+    def state_dict(self,)-> dict[str, Any]:
         '''
         Return model parameters
         '''    
-        pass 
+        self.feature_dict = self.feature_layer.state_dict()
+        self.value_dict = self.value_head.state_dict()
+        self.policy_dict = self.policy_head.state_dict()
+        self.optimizer_dict = self.optimizer.state_dict() 
+        return {'feature': self.feature_dict,
+                'value': self.value_dict,
+                'policy': self.policy_dict
+                }
     
     def load_state_dict(self, state: dict[str, Any])-> None:
+            assert state['feature'] , "Feature parameters not found"
+            assert state['value'] , "Value head parameters not found"
+            assert state['policy'] , "Policy head parameters not found"
 
-        pass 
+            self.feature_layer.load_state_dict(state_dict= state['feature'])
+            self.value_head.load_state_dict(state_dict= state['value'])
+            self.policy_head.load_state_dict(state_dict= state['policy'])
+            return
     
     def on_train_start(self, cfg):
         '''
         For initialization during training
         '''
-        pass 
+        self.feature_layer.train()
+        self.value_head.train()
+        self.policy_head.train()
+        
+        self.warmup_steps = int(self.cfg.get('warmup_steps', 1_000))  # steps before any training/decay 
     
     def on_train_end(self,global_step ):
         '''
         Optional: train logic end
         '''
         pass 
+    
+    def compute_adv_ret(self, values, rewards):
+        with torch.no_grad():
+            advs = torch.zeros_like(rewards,device=self.device)
+            
+            last_v = 0.0
+            next_v = last_v
+            adv_next = 0.0
+            for value, reward, adv in reversed(zip(values,rewards, advs)):
+                adv = reward + self.gamma * next_v - value + self.gamma * adv_next
+                adv_next = adv 
+                next_v = value 
+            net_return = advs + values 
+
+        return advs, net_return
+

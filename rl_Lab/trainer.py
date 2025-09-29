@@ -6,8 +6,8 @@ from torch.utils.tensorboard import SummaryWriter
 import torch 
 from tqdm import tqdm
 
-from rich.progress import Progress, TextColumn, BarColumn, TaskProgressColumn, TimeRemainingColumn
-from rich.console import Console
+# from rich.progress import Progress, TextColumn, BarColumn, TaskProgressColumn, TimeRemainingColumn
+# from rich.console import Console
 
 import os 
 from pathlib import Path
