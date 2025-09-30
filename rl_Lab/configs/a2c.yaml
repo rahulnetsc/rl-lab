@@ -1,5 +1,7 @@
 # configs/dqn.yaml
 gamma: 0.99
+td_lambda: 0.4
+max_steps: 1000
 lr: 0.01
 batch_size: 512
 rollout_size: 1000

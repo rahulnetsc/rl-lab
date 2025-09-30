@@ -43,10 +43,11 @@ class Trainer:
             self.algo = DuelingDQN(obs_dim=self.obs_dim, obs_shape = self.obs_shape, state_dim= 64, action_dim= self.action_dim, 
                             cfg= algo_cfg, device= self.device)
         elif args.algo == 'prbduelingdqn':
-            self.algo = DuelingDQNPrb(obs_dim=self.obs_dim, obs_shape = self.obs_shape, state_dim= 64, action_dim= self.action_dim, cfg= algo_cfg, device= self.device)
+            self.algo = DuelingDQNPrb(obs_dim=self.obs_dim, obs_shape = self.obs_shape, state_dim= 64, action_dim= self.action_dim, 
+                                      cfg= algo_cfg, device= self.device)
         elif args.algo == 'a2c':
-            # To be implemented
-            pass 
+            self.algo = A2C(obs_dim=self.obs_dim, obs_shape=self.obs_shape, state_dim=64, action_dim=self.action_dim, 
+                            cfg=algo_cfg, device=self.device)
         elif args.algo == 'ppo':
             # To be implemented 
             pass
@@ -224,7 +225,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--algo", type=str, default="dqn",
-                        choices=["dqn","doubledqn","duelingdqn","prbduelingdqn"])
+                        choices=["dqn","doubledqn","duelingdqn","prbduelingdqn","a2c"])
     parser.add_argument("--trainer_cfg", type=str, default="rl_Lab/configs/base_lunar.yaml")
     parser.add_argument("--only_eval", action="store_true")
     args = parser.parse_args()
