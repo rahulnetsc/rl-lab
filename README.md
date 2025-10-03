@@ -72,7 +72,9 @@ rl-lab/
 │    
 ├── main.py                  (CLI entry point)
 ├── README.md
-├── requirements.txt
+├── requirements_linux_rocm.txt
+├── requirements_linux.txt
+├── requirements_win.txt
 └── LICENSE
 
 ```
