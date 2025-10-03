@@ -10,7 +10,7 @@ A minimal extensible learning framework built on OpenAI gymnasium and PyTorch
 
 ## Roadmap
 - [x] Base framework with Gymnasium
-- [ ] A2C
+- [x] A2C
 - [ ] DDPG
 - [x] DQN
 - [x] Double DQN
