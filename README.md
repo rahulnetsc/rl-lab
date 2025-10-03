@@ -11,12 +11,15 @@ A minimal extensible learning framework built on OpenAI gymnasium and PyTorch
 ## Roadmap
 - [x] Base framework with Gymnasium
 - [ ] A2C
-- [ ] DDPC
+- [ ] DDPG
 - [x] DQN
+- [x] Double DQN
+- [x] Dueling DQN
+- [x] Prioritised Replay Buffer DQN
 - [ ] PPO
 - [ ] SAC (continuous control)
-- [ ] Tensorboard integration
-- [ ] Weights and biases integration
+- [x] Tensorboard integration
+- [x] Weights and biases integration
 - [ ] unit tests
 
 ## Package structure
@@ -28,27 +31,44 @@ rl-lab/
 │   ├── envs.py
 │   ├── utils.py
 │   ├── checkpoints/
+│   ├── adapter
+│   │   ├── client.py
+│   │   ├── env_adapter.py
+│   │
+│   └── algos/
+│   │   ├── base.py
+│   │   ├── dqn.py     
+│   │   ├── doubledqn.py     
+│   │   ├── duelingdqn.py     
+│   │   ├── prb_dueling.py
+│   │   ├── a2c.py
+│   │   ├── ddpg.py
+│   │   └── ppo.py           
 │   │
 │   ├── configs
-│   │   ├── base.yaml
+│   │   ├── a2c.yaml
+│   │   ├── base_acro.yaml
+│   │   ├── base_cart.yaml
+│   │   ├── base_lunar.yaml
+│   │   ├── base_mtn.yaml
+│   │   ├── base_taxi.yaml
 │   │   ├── dqn.yaml
+│   │   ├── double_dqn.yaml
+│   │   ├── dueling_dqn.yaml
+│   │   ├── prb_duelingdqn.yaml
+│   │   ├── ppo.yaml
 │   │
 │   ├── logs/
 │   │
 │   ├── memory/
 │   │   ├── replay.py
+│   │   ├── prb_replay.py
+│   │   ├── rollout.py
 │   │
 │   ├── nets/
-│   │   ├── __init__.py
+│   │   ├── cnn.py
+│   │   ├── transformers.py
 │   │   └── mlp.py
-│   └── algos/
-│       ├── __init__.py
-│       ├── base.py
-│       ├── dqn.py     
-│       ├── double_dqn.py     
-│       ├── duelingdqn.py     
-│       ├── 
-│       └── ppo.py           
 │    
 ├── main.py                  (CLI entry point)
 ├── README.md
@@ -75,4 +95,9 @@ Dueling DQN
 Dueling DQN with Prioritized Replay Buffer
 ```
  python -m rl_Lab.trainer --algo prbduelingdqn 
+```
+
+A2C
+```
+ python -m rl_Lab.trainer --algo a2c
 ```
