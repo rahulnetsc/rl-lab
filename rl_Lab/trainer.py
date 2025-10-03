@@ -51,8 +51,6 @@ class Trainer:
         elif args.algo == 'ppo':
             self.algo = PPO(obs_dim=self.obs_dim, obs_shape=self.obs_shape, state_dim=64, action_dim=self.action_dim, 
                             cfg=algo_cfg, device=self.device)
-            # To be implemented 
-            pass
         else: 
             raise NotImplementedError(f"Algo: {args.algo} not implemented")
 
@@ -156,7 +154,7 @@ class Trainer:
                         torch.save(state, self.ckpt_path)
                         tqdm.write(f"✅ New best at step {self.global_step}: return_mean={self.best_eval_return:.3f}")
                         # bar.log(f"[green]✅ New best at step {self.global_step}: return_mean={self.best_eval_return:.3f}")
-                        last_eval = self.global_step
+                    last_eval = self.global_step
 
                 obs = next_obs
                 ep_ret += float(reward)
@@ -227,7 +225,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--algo", type=str, default="dqn",
-                        choices=["dqn","doubledqn","duelingdqn","prbduelingdqn","a2c"])
+                        choices=["dqn","doubledqn","duelingdqn","prbduelingdqn","a2c","ppo"])
     parser.add_argument("--trainer_cfg", type=str, default="rl_Lab/configs/base_lunar.yaml")
     parser.add_argument("--only_eval", action="store_true")
     args = parser.parse_args()

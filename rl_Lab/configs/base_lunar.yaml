@@ -3,8 +3,8 @@ trainer:
   seed: 42
   max_steps: 100000
 
-  eval_every: 1000
-  eval_episodes: 10
+  eval_every: 50
+  eval_episodes: 2
   render_eval: false 
   
   # checkpoint 

@@ -1,5 +1,6 @@
 absl-py==2.3.1
 asttokens==3.0.0
+Box2D==2.3.10
 cloudpickle==3.1.1
 colorama==0.4.6
 decorator==5.2.1
@@ -9,6 +10,7 @@ filelock==3.13.1
 fsspec==2024.6.1
 grpcio==1.74.0
 gymnasium==1.2.0
+ipdb==0.13.13
 ipython==9.5.0
 ipython_pygments_lexers==1.1.1
 jedi==0.19.2
@@ -34,6 +36,7 @@ tensorboard==2.20.0
 tensorboard-data-server==0.7.2
 torch==2.8.0+cu126
 torchvision==0.23.0+cu126
+tqdm==4.67.1
 traitlets==5.14.3
 typing_extensions==4.12.2
 wcwidth==0.2.13

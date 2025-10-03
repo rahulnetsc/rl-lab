@@ -5,7 +5,7 @@ A minimal extensible learning framework built on OpenAI gymnasium and PyTorch
 ## Features
 - Plug-and-play with any Gymnasium environment
 - Modular design for any RL algorithm
-- Ready-to-use baselines: `REINFORCE, DQN`
+- Ready-to-use baselines: `PPO, DDPG` etc
 - Clean training loop with logging and evaluation
 
 ## Roadmap
@@ -102,4 +102,9 @@ Dueling DQN with Prioritized Replay Buffer
 A2C
 ```
  python -m rl_Lab.trainer --algo a2c
+```
+
+PPO
+```
+ python -m rl_Lab.trainer --algo ppo
 ```

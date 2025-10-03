@@ -10,6 +10,9 @@ __pycache__/
 
 rl_Lab/checkpoints/
 
+# profiler
+*.prof 
+
 # TensorBoard logs
 *.tfevents.*
 rl_Lab/logs/

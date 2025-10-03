@@ -13,21 +13,23 @@ class RolloutBuffer:
         self.store_value_fn = store_value_fn
         self.store_ep_info = store_ep_info
         
-        obs_dtype = np.uint8 if store_uint8 else dtype 
-        self.obs = np.empty((max_steps, *obs_shape), dtype= obs_dtype)
-        self.next_obs = np.empty((max_steps, *obs_shape), dtype= obs_dtype)
-        self.action = np.empty(max_steps, dtype= np.int64)
-        self.reward = np.empty(max_steps, dtype= np.float32)
-        self.value = np.empty(max_steps, dtype= np.float32)
-        self.reward = np.empty(max_steps, dtype= np.float32)
-        self.logp = np.empty(max_steps, dtype= np.float32)
+        self.max_steps = max_steps
+        
+        self.obs_dtype = np.uint8 if store_uint8 else dtype 
+        self.obs = np.empty((self.max_steps, *self.obs_shape), dtype= self.obs_dtype)
+        self.next_obs = np.empty((self.max_steps, *self.obs_shape), dtype= self.obs_dtype)
+        self.action = np.empty(self.max_steps, dtype= np.int64)
+        self.reward = np.empty(self.max_steps, dtype= np.float32)
+        self.value = np.empty(self.max_steps, dtype= np.float32)
+        self.reward = np.empty(self.max_steps, dtype= np.float32)
+        self.logp = np.empty(self.max_steps, dtype= np.float32)
 
         self.last_step = False
 
         if self.store_ep_info:
-            self.done = np.empty(max_steps, dtype= np.bool_)
-            self.truncated = np.empty(max_steps, dtype= np.bool_)
-            self.step = np.empty(max_steps, dtype= np.int64)
+            self.done = np.empty(self.max_steps, dtype= np.bool_)
+            self.truncated = np.empty(self.max_steps, dtype= np.bool_)
+            self.step = np.empty(self.max_steps, dtype= np.int64)
         
     @property
     def capacity(self): return self.max_steps
@@ -35,7 +37,21 @@ class RolloutBuffer:
     def clear(self):
         self._ptr = 0
         self._size = 0
+        self.obs = np.empty((self.max_steps, *self.obs_shape), dtype= self.obs_dtype)
+        self.next_obs = np.empty((self.max_steps, *self.obs_shape), dtype= self.obs_dtype)
+        self.action = np.empty(self.max_steps, dtype= np.int64)
+        self.reward = np.empty(self.max_steps, dtype= np.float32)
+        self.value = np.empty(self.max_steps, dtype= np.float32)
+        self.reward = np.empty(self.max_steps, dtype= np.float32)
+        self.logp = np.empty(self.max_steps, dtype= np.float32)
+
         self.last_step = False
+
+        if self.store_ep_info:
+            self.done = np.empty(self.max_steps, dtype= np.bool_)
+            self.truncated = np.empty(self.max_steps, dtype= np.bool_)
+            self.step = np.empty(self.max_steps, dtype= np.int64)
+        
 
     def push(self, transition: dict):
         assert transition["obs"].shape == self.obs_shape, f"Shape mismatch between transition['obs'].shape={transition['obs'].shape} and self.obs_shape = {self.obs_shape} "
