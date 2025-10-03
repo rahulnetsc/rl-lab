@@ -16,7 +16,7 @@ A minimal extensible learning framework built on OpenAI gymnasium and PyTorch
 - [x] Double DQN
 - [x] Dueling DQN
 - [x] Prioritised Replay Buffer DQN
-- [ ] PPO
+- [x] PPO
 - [ ] SAC (continuous control)
 - [x] Tensorboard integration
 - [x] Weights and biases integration
