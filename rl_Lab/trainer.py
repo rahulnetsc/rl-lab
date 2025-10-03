@@ -13,7 +13,7 @@ import os
 from pathlib import Path
 import time 
 
-from .algos import DQN, DoubleDQN, DuelingDQN, DuelingDQNPrb, A2C
+from .algos import DQN, DoubleDQN, DuelingDQN, DuelingDQNPrb, A2C, PPO
 from .utils import dev_sel, load_yaml
 
 class Trainer:
@@ -49,6 +49,8 @@ class Trainer:
             self.algo = A2C(obs_dim=self.obs_dim, obs_shape=self.obs_shape, state_dim=64, action_dim=self.action_dim, 
                             cfg=algo_cfg, device=self.device)
         elif args.algo == 'ppo':
+            self.algo = PPO(obs_dim=self.obs_dim, obs_shape=self.obs_shape, state_dim=64, action_dim=self.action_dim, 
+                            cfg=algo_cfg, device=self.device)
             # To be implemented 
             pass
         else: 

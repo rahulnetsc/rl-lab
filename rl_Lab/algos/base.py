@@ -63,7 +63,7 @@ class Algo(ABC):
         '''
         return
     
-    def state_dict(self,)-> dict[str, Any]:
+    def state_dict(self,)-> dict[str, Any]| None:
         '''
         Return model parameters
         '''        

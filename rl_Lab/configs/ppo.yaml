@@ -1,4 +1,28 @@
-# configs/dqn.yaml
+# rl_Lab/configs/ppo.yaml
+seed: 42
+
+# rollout & advantage
+max_steps: 1024          # rollout horizon T (reuse naming from A2C to minimize code changes)
 gamma: 0.99
-lr: 0.01
-batch_size: 512
+td_lambda: 0.95
+normalize_adv: true
+
+# optimization
+lr: 3.0e-4
+max_norm: 0.5
+train_epochs: 4          # K
+minibatch_size: 64
+
+# PPO-specific
+clip_eps: 0.2            # policy ratio clip
+value_clip_eps: 0.2      # clipped value loss (enable in code)
+target_kl: 0.015         # early-stop if approx KL exceeds this (optional but useful)
+
+# loss weights
+entropy_coef: 0.01
+value_coef: 0.5
+vf_loss: mse             # or huber
+
+# schedules (optional)
+anneal_lr: true
+anneal_clip: false
