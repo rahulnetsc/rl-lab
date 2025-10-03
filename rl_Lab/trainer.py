@@ -3,6 +3,11 @@ import numpy as np
 import argparse
 
 from torch.utils.tensorboard import SummaryWriter
+import torch 
+from tqdm import tqdm
+
+# from rich.progress import Progress, TextColumn, BarColumn, TaskProgressColumn, TimeRemainingColumn
+# from rich.console import Console
 
 import os 
 from pathlib import Path
@@ -10,7 +15,7 @@ import time
 
 from .algos import DQN, DoubleDQN, DuelingDQN, DuelingDQNPrb, A2C
 from .utils import dev_sel, load_yaml
-import torch 
+
 class Trainer:
     def __init__(self, cfg, algo_cfg, args, env = None, eval_env = None):
         super().__init__()
@@ -38,10 +43,11 @@ class Trainer:
             self.algo = DuelingDQN(obs_dim=self.obs_dim, obs_shape = self.obs_shape, state_dim= 64, action_dim= self.action_dim, 
                             cfg= algo_cfg, device= self.device)
         elif args.algo == 'prbduelingdqn':
-            self.algo = DuelingDQNPrb(obs_dim=self.obs_dim, obs_shape = self.obs_shape, state_dim= 64, action_dim= self.action_dim, cfg= algo_cfg, device= self.device)
+            self.algo = DuelingDQNPrb(obs_dim=self.obs_dim, obs_shape = self.obs_shape, state_dim= 64, action_dim= self.action_dim, 
+                                      cfg= algo_cfg, device= self.device)
         elif args.algo == 'a2c':
-            # To be implemented
-            pass 
+            self.algo = A2C(obs_dim=self.obs_dim, obs_shape=self.obs_shape, state_dim=64, action_dim=self.action_dim, 
+                            cfg=algo_cfg, device=self.device)
         elif args.algo == 'ppo':
             # To be implemented 
             pass
@@ -82,64 +88,93 @@ class Trainer:
             print(f"Starting training")
         
         self.algo.on_train_start(self.cfg)
-        while self.global_step < self.cfg['trainer']['max_steps']:
 
-            action = self.algo.select_action(obs_np=obs)
-            next_obs, reward, terminated, truncated, _ = self.env.step(action= action)
-            done = bool(terminated or truncated)
+        max_steps = int(self.cfg['trainer']['max_steps'])
 
-            transition = {
-                'obs': obs,
-                'action': action,
-                'reward': reward,
-                'next_obs': next_obs,
-                "done": bool(terminated),          # true terminals only
-                "truncated": bool(truncated),      # time-limit cutoffs
-                'step': self.global_step,
-            }
-            self.algo.observe(transition=transition)
+        # bar = Progress(
+        #     TextColumn("[bold blue]Training"),
+        #     BarColumn(),
+        #     TaskProgressColumn(),
+        #     TextColumn("• step {task.completed}/{task.total}"),
+        #     TextColumn("• loss {task.fields[loss]:.3f}"),
+        #     TimeRemainingColumn(),
+        #     transient=False,  # keep bar after finish; set True to clear
+        # )
 
-            metrics = self.algo.update(global_step=self.global_step) or {}
+        # with bar:
+        #     task = bar.add_task("train", total=max_steps, loss=0.0, start=True)
+        # tqdm bar knows total steps; picks up from current global_step if resuming
+        with tqdm(total=max_steps, initial=self.global_step, desc="Training", dynamic_ncols=True) as pbar:
+            while self.global_step < self.cfg['trainer']['max_steps']:
 
-            self.algo.on_train_end(global_step = self.global_step)
+                action = self.algo.select_action(obs_np=obs)
+                next_obs, reward, terminated, truncated, _ = self.env.step(action= action)
+                done = bool(terminated or truncated)
 
-            if metrics and (last_log==0 or self.global_step - last_log >= self.cfg['trainer']['log_every']):
-                print(f"[Episode: {self.episode_idx}], ep_len: {ep_len}, global_step: {self.global_step}")
-                kv = ", ".join(f"train/{k}: {v:.3f}" for k, v in metrics.items())
-                print(kv)
-                for k, v in metrics.items():
-                    if isinstance(v, (int, float)):
-                        self.writer.add_scalar(f'train/{k}', v, self.global_step)
-                last_log = self.global_step
+                transition = {
+                    'obs': obs,
+                    'action': action,
+                    'reward': reward,
+                    'next_obs': next_obs,
+                    "done": bool(terminated),          # true terminals only
+                    "truncated": bool(truncated),      # time-limit cutoffs
+                    'step': self.global_step,
+                }
+                self.algo.observe(transition=transition)
 
-            if last_eval==0 or self.global_step - last_eval >= self.cfg['trainer']['eval_every']:
-                eval_metrics: dict = self.eval_policy(idx=self.global_step) or {}
-                print(f"Eval at {self.global_step}")
-                kv = ", ".join(f"eval/{k}: {v:.3f}" for k, v in eval_metrics.items())
-                print(kv)
-                for k, v in eval_metrics.items():
-                    self.writer.add_scalar(f'eval/{k}', v, self.global_step)
-                last_eval = self.global_step
+                metrics = self.algo.update(global_step=self.global_step) or {}
 
-                if self.best_eval_return < eval_metrics['return_mean']:
-                    self.best_eval_return = eval_metrics['return_mean']
-                    state = self.algo.state_dict()
-                    print(f"Saving params in {self.ckpt_dir} at self.global_step = {self.global_step}\n")
-                    torch.save(state, self.ckpt_path)
+                self.algo.on_train_end(global_step = self.global_step)
 
-            obs = next_obs
-            ep_ret += float(reward)
-            ep_len += 1
-            self.global_step += 1
+                if metrics and (last_log==0 or self.global_step - last_log >= self.cfg['trainer']['log_every']):
+                    # print(f"[Episode: {self.episode_idx}], ep_len: {ep_len}, global_step: {self.global_step}")
+                    kv = ", ".join(f"train/{k}: {v:.3f}" for k, v in metrics.items())
+                    tqdm.write(f"[Episode {self.episode_idx}] step={self.global_step} ep_len={ep_len} | {kv}")
+                    # bar.log(f"[Episode {self.episode_idx}] step={self.global_step} ep_len={ep_len} | {kv}")
+                
+                    # print(kv)
+                    for k, v in metrics.items():
+                        if isinstance(v, (int, float)):
+                            self.writer.add_scalar(f'train/{k}', v, self.global_step)
+                    last_log = self.global_step
 
-            if done:
-                # print(f"DONE: [Train/Episode: {self.episode_idx}], episode_len = {ep_len}, return = {ep_ret:.3f}")
-                self.writer.add_scalar('train/episode_return', ep_ret, self.global_step)
-                self.writer.add_scalar('train/episode_length', ep_len, self.global_step)
-                self.algo.on_episode_end()
-                ep_ret, ep_len = 0.0, 0
-                self.episode_idx += 1
-                obs, _ = self.env.reset()
+                if last_eval==0 or self.global_step - last_eval >= self.cfg['trainer']['eval_every']:
+                    eval_metrics: dict = self.eval_policy(idx=self.global_step) or {}
+                    # kv = ", ".join(f"eval/{k}: {v:.3f}" for k, v in eval_metrics.items())
+                    for k, v in eval_metrics.items():
+                        self.writer.add_scalar(f'eval/{k}', v, self.global_step)
+
+                    if self.best_eval_return < eval_metrics['return_mean']:
+                        # print(f"Eval at {self.global_step}")
+                        # print(kv)
+                    
+                        self.best_eval_return = eval_metrics['return_mean']
+                        state = self.algo.state_dict()
+                        tqdm.write(f"Saving params in {self.ckpt_path} at self.global_step = {self.global_step}\n")
+                        torch.save(state, self.ckpt_path)
+                        tqdm.write(f"✅ New best at step {self.global_step}: return_mean={self.best_eval_return:.3f}")
+                        # bar.log(f"[green]✅ New best at step {self.global_step}: return_mean={self.best_eval_return:.3f}")
+                        last_eval = self.global_step
+
+                obs = next_obs
+                ep_ret += float(reward)
+                ep_len += 1
+                self.global_step += 1
+                pbar.update(1)
+                # advance + update live fields
+                # bar.advance(task, 1)
+                if metrics:
+                    pbar.set_postfix(loss=float(metrics.get('loss', 0.0)), ep_len=ep_len, refresh=False)
+                    # bar.update(task, loss=float(metrics.get('loss', 0.0)))
+
+                if done:
+                    # print(f"DONE: [Train/Episode: {self.episode_idx}], episode_len = {ep_len}, return = {ep_ret:.3f}")
+                    self.writer.add_scalar('train/episode_return', ep_ret, self.global_step)
+                    self.writer.add_scalar('train/episode_length', ep_len, self.global_step)
+                    self.algo.on_episode_end()
+                    ep_ret, ep_len = 0.0, 0
+                    self.episode_idx += 1
+                    obs, _ = self.env.reset()
         
         self.env.close(); self.eval_env.close()
         self.writer.flush(); self.writer.close()
@@ -178,7 +213,7 @@ class Trainer:
         # if self.cfg['eval']['render_eval']:
         #     self.eval_env.close()
         #     self.eval_env = gym.make(self.self.env_id, render_mode="human")
-        print(f"[Eval] length_mean = {np.mean(lengths)}, return_mean = {np.mean(returns):.3f}")
+        # print(f"[Eval] length_mean = {np.mean(lengths)}, return_mean = {np.mean(returns):.3f}")
         return {
             'length_mean': np.mean(lengths),
             'return_mean': np.mean(returns)
@@ -190,7 +225,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--algo", type=str, default="dqn",
-                        choices=["dqn","doubledqn","duelingdqn","prbduelingdqn"])
+                        choices=["dqn","doubledqn","duelingdqn","prbduelingdqn","a2c"])
     parser.add_argument("--trainer_cfg", type=str, default="rl_Lab/configs/base_lunar.yaml")
     parser.add_argument("--only_eval", action="store_true")
     args = parser.parse_args()

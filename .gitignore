@@ -3,4 +3,14 @@ testing/
 logs/*
 !logs/.gitkeep
 
-rl_Lab/algos/__pycache__/*
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+rl_Lab/checkpoints/
+
+# TensorBoard logs
+*.tfevents.*
+rl_Lab/logs/
+
